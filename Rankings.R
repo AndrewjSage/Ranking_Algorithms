@@ -5,7 +5,7 @@ X <- as.matrix(Games |> dplyr::select(A:E))
 Y <- as.matrix(Games |> dplyr::select(Y))
 b <- ginv(t(X)%*%X)%*%t(X)%*%Y
 
-#------------------------------------------------------------
+#------------------------------------------------------------ #
 
 # read in games data
 Games_Data <- read.csv("NCAAF24.csv")
