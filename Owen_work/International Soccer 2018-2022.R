@@ -6,6 +6,8 @@ Games_Data <- read.csv("New International Games 2018-2022.csv")
 
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
 
+## Owen says hello
+
 Rankings <- function(Games_Data){
   
   #Preliminary work to set up X matrix
