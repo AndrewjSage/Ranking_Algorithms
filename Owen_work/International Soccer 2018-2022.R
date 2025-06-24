@@ -36,8 +36,24 @@ Rankings <- function(Games_Data){
   }
  
   X[games+1,1:numteams]=c(rep(1, numteams)) #add sum to zero constraint
-  X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
+  #X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
   y <- c(Scores$Mar[1:games],0) # margin of victory vector
+  for (i in 1:games){ #scale the margin vector to limit the weight of routs
+    margin <- y[i]
+    
+    if(margin == 2){
+      y[i] <- 1.5
+    }
+    if(margin == -2){
+      y[i] <- -1.5
+    }
+    if(margin >= 3){
+      y[i] <- (11 + margin) / 8
+    }
+    if(margin <= -3){
+      y[i] <- (-11 - margin) / 8
+    }
+  }
   b <- ginv(t(X)%*%X)%*%t(X)%*%y  #calculate ratings using least squares
   show(b)
   # organize into table
