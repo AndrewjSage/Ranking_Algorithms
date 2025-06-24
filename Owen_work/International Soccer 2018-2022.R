@@ -51,7 +51,7 @@ Rankings <- function(Games_Data){
       y[i] <- (11 + margin) / 8
     }
     if(margin <= -3){
-      y[i] <- (-11 - margin) / 8
+      y[i] <- (-11 + margin) / 8
     }
   }
   b <- ginv(t(X)%*%X)%*%t(X)%*%y  #calculate ratings using least squares
