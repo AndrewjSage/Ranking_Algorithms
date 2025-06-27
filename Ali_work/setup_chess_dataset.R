@@ -1,6 +1,6 @@
 # I wasn't able to perform web scraping from the original online 
 # database that I was planning to use.
-# However I found a source that publishes data on all official FIDE games weekly.
+# However, I found a source that publishes data on all official FIDE games weekly.
 # The name of the source is The Week in Chess
 # That database uses PGNs (Portable Game Notation) and I'm going to work with them.
 # Therefore, I now have access to the most current data.

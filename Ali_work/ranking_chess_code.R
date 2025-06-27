@@ -1,18 +1,38 @@
-# I will be doing most of the work in this file.
+### I will be doing most of the work in this file.
 # Current questions and brainstorm:
 # If I upload 52 weeks of data into the .csv, it will have about 400.000 observations.
 # That's a lot, but I don't think I will have issues with working 
 # with such a dataset.
-# Dataset doesn't count for gender.
+# The dataset doesn't count for gender.
 # Should I do filtering by ELO? It depends on the task I assign. 
-# What could be confounding variables? Number of games played, elo, no show up. 
+### What could be confounding variables? Number of games played, elo, no show up. 
 
-## it takes 5-10 minutes to run the code.
 
+# First test results:
+# I am happy with the first results because I can observe some correlation between
+# the rankings I made and the official FIDE rankings. However, there are still many
+# outliers and inaccurate ratings. I think I should account for Elo and different
+# events to make more accurate rankings. After that, I should try working with
+# a 52-week dataset instead of a 3-week dataset. (It might take hours to run
+# a ranking algorithm for a 52-week dataset)
+
+
+
+# run this to see the chess games dataset
+fide_games <- read.csv("Ali_work/fide_games_weekly.csv")
+
+# run this to see the rankings
+fide_rankings <- read.csv("Ali_work/chess_rankings_3weeks.csv")
+
+
+
+
+
+## code for ranking chess players
+# it takes 5-10 minutes to run the code
 library(dplyr)
 library(MASS)
 
-fide_games <- read.csv("Ali_work/fide_games_weekly.csv")
 
 # 1) Read the dataset
 Games <- read.csv("Ali_work/fide_games_weekly.csv", stringsAsFactors = FALSE)
@@ -58,4 +78,4 @@ Ratings <- data.frame(
 
 # 7) Inspect and save
 print(Ratings)
-write.csv(Ratings, "chess_rankings_3weeks.csv", row.names = FALSE)
+# write.csv(Ratings, "chess_rankings_3weeks.csv", row.names = FALSE)
