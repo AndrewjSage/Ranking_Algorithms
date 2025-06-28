@@ -5,12 +5,11 @@ library(MASS)
 Games_Data <- New.International.Games.2018.2022
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
 
-
 Rankings <- function(Games_Data){
   
   #Preliminary work to set up X matrix
-  Scores <- Games_Data |> dplyr::select(V3, V4, V9, V10)
-  names(Scores) <- c("TEAM", "OPP",  "Home", "Mar")
+  Scores <- Games_Data |> dplyr::select(V3, V4, V7, V9, V10)
+  names(Scores) <- c("TEAM", "OPP", "Tournament", "Home", "Mar")
   Scores <- rbind(Scores,Scores)
   h <- nrow(Scores)/2
   Scores$TEAM <- as.character(Scores$TEAM)
@@ -23,8 +22,9 @@ Rankings <- function(Games_Data){
   games <- nrow(Scores)/2
   teams <- c(Scores$TEAM)
   opps <- c(Scores$OPP)
+  tournaments <- c(Scores$Tournament)
   numteams <- length(unique(teams))
-  X <- matrix(0, games+1, numteams+1)
+  X <- matrix(0, games+1, numteams+2)
 
   
   # fill in X matrix with 0's and 1's
@@ -34,9 +34,26 @@ Rankings <- function(Games_Data){
     X[i,team] <- 1
     X[i,opp] <- -1
   }
- 
+  
   X[games+1,1:numteams]=c(rep(1, numteams)) #add sum to zero constraint
-  #X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
+  X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
+  for(i in 1:games){
+    tournament <- tournaments[i]
+    friendlies <- c("Friendly", "Friendly tournament")
+    qualifiers <- c("African Nations Cup qualifier", "Arab Cup qualifier", 
+                    "Asian Cup qualifier", "CONCACAF Champ qual", 
+                    "CONCACAF Nations League q", "East Asian Championship qual",
+                    "European Championship qual", "Southeast Asian Champ qual",
+                    "World Cup and Asian Cup qual", "World Cup qualifier")
+    if(tournament %in% friendlies){
+      X[i, numteams+2] <- 1
+    }
+    else if(tournament %in% qualifiers){
+      X[i, numteams+2] <- 2
+    }
+    else(X[i, numteams+2] <- 3)
+  }
+ 
   y <- c(Scores$Mar[1:games],0) # margin of victory vector
   for (i in 1:games){ #scale the margin vector to limit the weight of routs
     margin <- y[i]
