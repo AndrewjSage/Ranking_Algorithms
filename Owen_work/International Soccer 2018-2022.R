@@ -4,7 +4,23 @@ library(MASS)
 # read in games data
 Games_Data <- New.International.Games.2018.2022
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
-
+ 
+ cup_games <- Games_Data %>% 
+   filter(!(V7 %in% c("Friendly", "Friendly tournament", 
+                      "African Nations Cup qualifier", "Arab Cup qualifier", 
+                      "Asian Cup qualifier", "CONCACAF Champ qual", 
+                      "CONCACAF Nations League q", "East Asian Championship qual",
+                      "European Championship qual", "Southeast Asian Champ qual")))
+ 
+ qualifiers <- Games_Data %>% 
+   filter(V7 %in% c("African Nations Cup qualifier", "Arab Cup qualifier", 
+            "Asian Cup qualifier", "CONCACAF Champ qual", 
+        "CONCACAF Nations League q", "East Asian Championship qual",
+       "European Championship qual", "Southeast Asian Champ qual"))
+ 
+ friendlies <- Games_Data %>%
+   filter(V7 %in% c("Friendly", "Friendly tournament"))
+ 
 Rankings <- function(Games_Data){
   
   #Preliminary work to set up X matrix
@@ -37,17 +53,16 @@ Rankings <- function(Games_Data){
   
   X[games+1,1:numteams]=c(rep(1, numteams)) #add sum to zero constraint
   X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
-  #for(i in 1:games){
-   # tournament <- tournaments[i]
-   # friendlies <- c("Friendly", "Friendly tournament")
-    #qualifiers <- c("African Nations Cup qualifier", "Arab Cup qualifier", 
-               #     "Asian Cup qualifier", "CONCACAF Champ qual", 
-                 #   "CONCACAF Nations League q", "East Asian Championship qual",
-                  #  "European Championship qual", "Southeast Asian Champ qual",
-                 #   "World Cup and Asian Cup qual")
-   # if(tournament %in% friendlies){
+  #for(i in 1:games){ #weighting games by match type
+  #  tournament <- tournaments[i]
+  #  friendlies <- c("Friendly", "Friendly tournament")
+   # qualifiers <- c("African Nations Cup qualifier", "Arab Cup qualifier", 
+        #            "Asian Cup qualifier", "CONCACAF Champ qual", 
+            #        "CONCACAF Nations League q", "East Asian Championship qual",
+             #       "European Championship qual", "Southeast Asian Champ qual")
+    #if(tournament %in% friendlies){
     #  X[i, numteams+2] <- 1
-    #}
+   # }
     #else if(tournament %in% qualifiers){
     #  X[i, numteams+2] <- 2
     #}
@@ -70,12 +85,15 @@ Rankings <- function(Games_Data){
     if(margin <= -2){
       y[i] <- -3 - log((-1 %*% y[i]) - 1)
     }
+    
+    #previous margin weightings
    # if(margin >= 3){
     #  y[i] <- (19 + margin) / 8
     #}
     #if(margin <= -3){
     #  y[i] <- (-19 + margin) / 8
     #}
+    
   }
   b <- ginv(t(X)%*%X)%*%t(X)%*%y  #calculate ratings using least squares
   show(b)
