@@ -20,7 +20,7 @@ Games_Data <- read.csv("NCAAF24.csv")
   
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
 
-Rankings <- function(Games_Data){
+Weighted_Rankings <- function(Games_Data){
     
     #Preliminary work to set up X matrix
     Scores <- Games_Data |> dplyr::select(Team, Opp, Mar, Home)
@@ -72,11 +72,11 @@ Rankings <- function(Games_Data){
       w <- abs(c(scale(w))) #standardize differences
       diag(Winv)[nrow(W)] <- 0
       diag(Winv)[1:(nrow(W)-1)] <- 1/(1+exp(w))  # use reciprocal exponential weighting function
-      b0 <- b
-      b <- ginv(t(X)%*%Winv%*%X)%*%t(X)%*%Winv%*%y
+      b0 <- b   # store previous ratings
+      b <- ginv(t(X)%*%Winv%*%X)%*%t(X)%*%Winv%*%y # calculate new ratings using new weights
     }
     
-    GameWeights <- diag(Winv)
+    GameWeights <- diag(Winv)  # store final game weightings
     
     
     
@@ -91,5 +91,5 @@ Rankings <- function(Games_Data){
 
 
 # calculate rankings
-NCAAF24_Rankings <- Rankings(Games_Data)
+NCAAF24_Rankings <- Weighted_Rankings(Games_Data)
 NCAAF24_Rankings
