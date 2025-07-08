@@ -4,7 +4,7 @@ library(MASS)
 # read in games data
 Games_Data <- New.International.Games.2018.2022
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
- 
+
  cup_games <- Games_Data %>% 
    filter(!(V7 %in% c("Friendly", "Friendly tournament", 
                       "African Nations Cup qualifier", "Arab Cup qualifier", 
@@ -40,7 +40,7 @@ Rankings <- function(Games_Data){
   opps <- c(Scores$OPP)
   tournaments <- c(Scores$Tournament)
   numteams <- length(unique(teams))
-  X <- matrix(0, games+1, numteams+1)
+  X <- matrix(0, games, numteams+1)
 
   
   # fill in X matrix with 0's and 1's
@@ -51,25 +51,28 @@ Rankings <- function(Games_Data){
     X[i,opp] <- -1
   }
   
-  X[games+1,1:numteams]=c(rep(1, numteams)) #add sum to zero constraint
-  X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
-  #for(i in 1:games){ #weighting games by match type
-  #  tournament <- tournaments[i]
-  #  friendlies <- c("Friendly", "Friendly tournament")
-   # qualifiers <- c("African Nations Cup qualifier", "Arab Cup qualifier", 
-        #            "Asian Cup qualifier", "CONCACAF Champ qual", 
-            #        "CONCACAF Nations League q", "East Asian Championship qual",
-             #       "European Championship qual", "Southeast Asian Champ qual")
-    #if(tournament %in% friendlies){
-    #  X[i, numteams+2] <- 1
-   # }
-    #else if(tournament %in% qualifiers){
-    #  X[i, numteams+2] <- 2
-    #}
-    #else(X[i, numteams+2] <- 3)
-  #}
+  X[games,1:numteams]=c(rep(1, numteams)) #add sum to zero constraint
+  #X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
+  
+  #set up weighted matrix W
+  W <- matrix(0, games, games)
+  for(i in 1:games){ #weighting games by match type
+    tournament <- tournaments[i]
+    friendly_games <- c("Friendly", "Friendly tournament")
+   qualifier_games <- c("African Nations Cup qualifier", "Arab Cup qualifier", 
+              "Asian Cup qualifier", "CONCACAF Champ qual", 
+          "CONCACAF Nations League q", "East Asian Championship qual",
+         "European Championship qual", "Southeast Asian Champ qual")
+  if(tournament %in% friendly_games){
+    W[i, i] <- 0.5
+   }
+  else if(tournament %in% qualifier_games){
+    W[i, i] <- 1
+  }
+  else(W[i, i] <- 2)
+  }
  
-  y <- c(Scores$Mar[1:games],0) # margin of victory vector
+  y <- c(Scores$Mar[1:games])# margin of victory vector
   for (i in 1:games){ #scale the margin vector to make winning more important and limit the weight of routs
     margin <- y[i]
     
@@ -95,7 +98,7 @@ Rankings <- function(Games_Data){
     #}
     
   }
-  b <- ginv(t(X)%*%X)%*%t(X)%*%y  #calculate ratings using least squares
+  b <- ginv(t(X)%*%W%*%X)%*%t(X)%*%W%*%y  #calculate ratings using weighted least squares
   show(b)
   # organize into table
   Rankings_Table <- data.frame(sort(as.character(unique(Scores$TEAM))), b[1:numteams])
