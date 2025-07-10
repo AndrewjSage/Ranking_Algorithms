@@ -5,6 +5,10 @@ library(MASS)
 Games_Data <- New.International.Games.2018.2022
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
 
+Sample_Data <- Games_Data[1:3300, ]
+show(Sample_Data)
+Test_Data <- Games_Data[3301:4069, ]
+show(Test_Data)
  cup_games <- Games_Data %>% 
    filter(!(V7 %in% c("Friendly", "Friendly tournament", 
                       "African Nations Cup qualifier", "Arab Cup qualifier", 
@@ -21,10 +25,10 @@ Games_Data <- New.International.Games.2018.2022
  friendlies <- Games_Data %>%
    filter(V7 %in% c("Friendly", "Friendly tournament"))
  
-Rankings <- function(Games_Data){
+Rankings <- function(Sample_Data){
   
   #Preliminary work to set up X matrix
-  Scores <- Games_Data |> dplyr::select(V3, V4, V7, V9, V10)
+  Scores <- Sample_Data |> dplyr::select(V3, V4, V7, V9, V10)
   names(Scores) <- c("TEAM", "OPP", "Tournament", "Home", "Mar")
   Scores <- rbind(Scores,Scores)
   h <- nrow(Scores)/2
@@ -40,7 +44,7 @@ Rankings <- function(Games_Data){
   opps <- c(Scores$OPP)
   tournaments <- c(Scores$Tournament)
   numteams <- length(unique(teams))
-  X <- matrix(0, games, numteams+1)
+  X <- matrix(0, games, numteams)#add +1 to games and numteams here
 
   
   # fill in X matrix with 0's and 1's
@@ -51,7 +55,7 @@ Rankings <- function(Games_Data){
     X[i,opp] <- -1
   }
   
-  X[games,1:numteams]=c(rep(1, numteams)) #add sum to zero constraint
+  X[games,1:numteams]=c(rep(1, numteams))#add +1 to games here #add sum to zero constraint
   #X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
   
   #set up weighted matrix W
@@ -72,7 +76,7 @@ Rankings <- function(Games_Data){
   else(W[i, i] <- 2)
   }
  
-  y <- c(Scores$Mar[1:games])# margin of victory vector
+  y <- c(Scores$Mar[1:games])#add +1 to games here #margin of victory vector
   for (i in 1:games){ #scale the margin vector to make winning more important and limit the weight of routs
     margin <- y[i]
     
@@ -112,3 +116,42 @@ Rankings <- function(Games_Data){
 # calculate rankings
 World22_Rankings <- Rankings(Games_Data)
 World22_Rankings
+
+#function to represent accuracy of future predictions
+Predictions <- function(Test_Data, World22_Rankings){
+  
+  #preliminary work to set up prediction loop
+  Test <- Test_Data |> dplyr::select(V3, V4, V9, V10)
+  names(Test) <- c("TEAM", "OPP", "Home", "Mar")
+  home_countries <- c(Test$TEAM)
+  away_countries <- c(Test$OPP)
+  World22_Teams <- c(World22_Rankings$Team)
+  World22_Ratings <- c(World22_Rankings$Rating)
+  true_results <- c(Test$Mar)
+  
+  p <- 0
+  
+  for(i in 1:769){
+    
+    #home country ranking
+    home <- home_countries[i]
+    home_row <- which(World22_Teams == home)
+    home_ranking <- World22_Ratings[home_row]
+    
+    #away country ranking
+    away <- away_countries[i]
+    away_row <- which(World22_Teams == away)
+    away_ranking <- World22_Ratings[away_row]
+    
+    #true result
+    true_result <- true_results[i]
+    
+    p <- p + (((home_ranking - away_ranking) - true_result)^2)
+  }
+  
+  return(p)
+}
+
+Rankings_Accuracy <- Predictions(Test_Data, World22_Rankings)
+show(Rankings_Accuracy)
+  
