@@ -1,0 +1,83 @@
+---
+title: "Progress Report 1"
+author: "Ali"
+format: pdf
+editor: visual
+---
+
+# Introduction
+
+In this report I will provide a summary of the work I have done on ranking sports teams. I decided to start with making algorithms for chess data. I found a source that publishes data on all official FIDE (International Chess Federation) games weekly. The name of the source is The Week in Chess. That database uses PGNs (Portable Game Notation) and I have been working with them by transforming into .csv file format. Therefore, I have access to the most current data.
+
+In order to keep the report clean, I will not be displaying much of the coding part here.
+
+# Creating a Dataset
+
+Since the initial file format of the database is .pgn, I have to transform it into .csv. First, I downloaded three .pgn files from The Week in Chess website (<https://theweekinchess.com/twic>) containing data on the three weeks of chess games played in June 2025. Second, I wrote some code to create a .csv dataset from .pgn files (I used ChatGPT to assist me with coding).
+
+Here are 10 rows of the resulting dataset:
+
+```{r}
+fide_games <- read.csv("fide_games_weekly.csv")
+head(fide_games, 10)
+```
+
+So far I have been working with the three weeks of data. Once I make the most accurate (to my ability) algorithm for ranking chess players, I will be able to add more weeks of data without an issue.
+
+# First Algorithms
+
+I used the code given for ranking football teams as a template for my algorithms. Since there are three possible game outcomes, I encoded them as +1/0/-1. Then, I built the X matrix, added sum-to-zero constraint, calculated ratings using least squares. Finally, I saved the resulted ratings in a new data frame, also adding the "Rank" variable.
+
+# First Results
+
+I like to brainstorm and make notes before and after doing some work. That's my initial comment on the results:
+
+"I am happy with the first results because I can observe some correlation between the rankings I made and the official FIDE rankings. However, there are still many outliers and inaccurate ratings. I think I should account for Elo and different events to make more accurate rankings. After that, I should try working with a 52-week dataset instead of a 3-week dataset. (It might take hours to run a ranking algorithm for a 52-week dataset)."
+
+Here are the first 20 rows in the resulted dataset:
+
+```{r}
+fide_rankings <- read.csv("chess_rankings_3weeks.csv")
+head(fide_rankings, 20)
+```
+
+Although I was able to instantly spot a few highest ranked players by FIDE ratings, there was still much room for improvement. I noticed that the majority of outliers consisted of players who played a small number of games. Therefore, I decided to filter out players with fewer than 10 games played.
+
+Here are the first 20 rows in the filtered dataset:
+
+```{r}
+fide_rankings_filtered <- read.csv("chess_rankings_filtered.csv")
+head(fide_rankings_filtered, 20)
+```
+
+The results in the filtered dataset were great, I could recognize 15 players out of 20. However, filtering out players by the number of games played has its disadvantages. For example, Daniil Dubov was ranked the 6th with 5 games played in the unfiltered dataset. Although he is indeed one of the highest ranked chess players in the world, filtering out by the number of games played excluded him completely from our rankings. Therefore, I should keep working on improving the algorithms
+
+# Weighted Least Squares
+
+I have carefully analyzed the code for weighted rankings in football and used it as a template for my code. My goal was to weigh games based on how closely players were matched. The coding part was quite complicated and might require revision in future.
+
+Nevertheless, here are the first 20 rows in the weighted rankings dataset:
+
+```{r}
+weighted_rankings <- read.csv("chess_weighted_rankings.csv")
+head(weighted_rankings, 20)
+```
+
+The results were unexpected because I couldn't recognize most of the highest rated players in my dataset. I think it happened because I still do not fully account for the number of games played. I have an idea of giving each game a weight based on the total number of games played by both players, and that's what I am currently working on.
+
+### Filtering Games for Weighted Rankings
+
+Although I was not happy with the first results of my algorithm for weighted rankings, I wanted to see how it would perform if I filtered out games where at least one player played less than 5 games. The initial total amount of chess games over three weeks of data was 25265. After applying filtering, the number of games decreased to 22429. Since I wrote the algorithm for weighted rankings as a function, I just ran the function on the new filtered dataset.
+
+Here are the first 20 rows in the filtered weighted rankings dataset:
+
+```{r}
+weighted_rankings_filtered <- read.csv("chess_weighted_rankings_filt.csv")
+head(weighted_rankings_filtered, 20)
+```
+
+The results are pretty good. Filtering helped a lot and now we can observe some correlation between our results and official FIDE ratings. However, I do not like the idea of using filtering because we excluded almost 3.000 observations from our dataset.
+
+# Ideas
+
+The idea of weighting each game based on the total number of games played by both players sounds the most rational at the moment. If the algorithm works satisfactorily, I will test it on a 52-week dataset.
