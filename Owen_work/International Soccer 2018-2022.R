@@ -44,7 +44,7 @@ Rankings <- function(Sample_Data){
   opps <- c(Scores$OPP)
   tournaments <- c(Scores$Tournament)
   numteams <- length(unique(teams))
-  X <- matrix(0, games, numteams)#add +1 to games and numteams here
+  X <- matrix(0, games+1, numteams+1)#add +1 to games and numteams here
 
   
   # fill in X matrix with 0's and 1's
@@ -55,11 +55,12 @@ Rankings <- function(Sample_Data){
     X[i,opp] <- -1
   }
   
-  X[games,1:numteams]=c(rep(1, numteams))#add +1 to games here #add sum to zero constraint
-  #X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
+  X[games+1,1:numteams]=c(rep(1, numteams))#add +1 to games here #add sum to zero constraint
+  X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
   
   #set up weighted matrix W
-  W <- matrix(0, games, games)
+  W <- matrix(0, games+1, games+1)
+  W[games+1, games+1] <- 1
   for(i in 1:games){ #weighting games by match type
     tournament <- tournaments[i]
     friendly_games <- c("Friendly", "Friendly tournament")
@@ -68,15 +69,15 @@ Rankings <- function(Sample_Data){
           "CONCACAF Nations League q", "East Asian Championship qual",
          "European Championship qual", "Southeast Asian Champ qual")
   if(tournament %in% friendly_games){
-    W[i, i] <- 0.5
+    W[i, i] <- 1
    }
   else if(tournament %in% qualifier_games){
-    W[i, i] <- 1
+    W[i, i] <- 1.5
   }
   else(W[i, i] <- 2)
   }
  
-  y <- c(Scores$Mar[1:games])#add +1 to games here #margin of victory vector
+  y <- c(Scores$Mar[1:games], 0)#add +1 to games here #margin of victory vector
   for (i in 1:games){ #scale the margin vector to make winning more important and limit the weight of routs
     margin <- y[i]
     
@@ -92,14 +93,6 @@ Rankings <- function(Sample_Data){
     if(margin <= -2){
       y[i] <- -3 - log((-1 %*% y[i]) - 1)
     }
-    
-    #previous margin weightings
-   # if(margin >= 3){
-    #  y[i] <- (19 + margin) / 8
-    #}
-    #if(margin <= -3){
-    #  y[i] <- (-19 + margin) / 8
-    #}
     
   }
   b <- ginv(t(X)%*%W%*%X)%*%t(X)%*%W%*%y  #calculate ratings using weighted least squares
