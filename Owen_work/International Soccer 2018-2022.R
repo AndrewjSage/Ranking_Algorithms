@@ -5,10 +5,6 @@ library(MASS)
 Games_Data <- New.International.Games.2018.2022
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
 
-Sample_Data <- Games_Data[1:3300, ]
-show(Sample_Data)
-Test_Data <- Games_Data[3301:4069, ]
-show(Test_Data)
  cup_games <- Games_Data %>% 
    filter(!(V7 %in% c("Friendly", "Friendly tournament", 
                       "African Nations Cup qualifier", "Arab Cup qualifier", 
@@ -24,6 +20,16 @@ show(Test_Data)
  
  friendlies <- Games_Data %>%
    filter(V7 %in% c("Friendly", "Friendly tournament"))
+
+ Test_cup_subset <- cup_games[951:1748, ]
+ 
+ Test_indices <- which(duplicated(rbind(Games_Data, Test_cup_subset))[(nrow(Games_Data) + 1):nrow(rbind(Games_Data, Test_cup_subset))])
+ 
+ 
+ Test_Data <- dplyr::semi_join(Games_Data, Test_cup_subset, by = colnames(Games_Data))
+ 
+ Sample_Data <- dplyr::anti_join(Games_Data, Test_Data, by = colnames(Games_Data))
+ 
  
 Rankings <- function(Sample_Data){
   
@@ -107,7 +113,7 @@ Rankings <- function(Sample_Data){
 
 
 # calculate rankings
-World22_Rankings <- Rankings(Games_Data)
+World22_Rankings <- Rankings(Sample_Data)
 World22_Rankings
 
 #function to represent accuracy of future predictions
