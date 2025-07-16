@@ -78,9 +78,9 @@ Rankings <- function(Sample_Data){
     W[i, i] <- 1
    }
   else if(tournament %in% qualifier_games){
-    W[i, i] <- 1.5
+    W[i, i] <- 1
   }
-  else(W[i, i] <- 2)
+  else(W[i, i] <- 1)
   }
  
   y <- c(Scores$Mar[1:games], 0)#add +1 to games here #margin of victory vector
