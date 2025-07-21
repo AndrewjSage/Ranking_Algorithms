@@ -2,7 +2,7 @@ library(tidyverse)
 library(MASS)
 
 # read in games data
-Games_Data <- New.International.Games.2018.2022
+Games_Data <- International.Soccer.Games.2018.2022
 ## Function to read scores from Games_Data data frame with team names and margin and calculate rankings
 
  cup_games <- Games_Data %>% 
@@ -67,21 +67,39 @@ Rankings <- function(Sample_Data){
   #set up weighted matrix W
   W <- matrix(0, games+1, games+1)
   W[games+1, games+1] <- 1
-  for(i in 1:games){ #weighting games by match type
-    tournament <- tournaments[i]
+  
     friendly_games <- c("Friendly", "Friendly tournament")
    qualifier_games <- c("African Nations Cup qualifier", "Arab Cup qualifier", 
               "Asian Cup qualifier", "CONCACAF Champ qual", 
           "CONCACAF Nations League q", "East Asian Championship qual",
          "European Championship qual", "Southeast Asian Champ qual")
-  if(tournament %in% friendly_games){
-    W[i, i] <- 1
+   # Add date column and process time weights
+   dates <- as.Date(Sample_Data$V11)
+   dates <- c(dates, dates)  # duplicated for rbind symmetry
+   game_dates <- dates[1:games]
+   
+   most_recent_date <- max(game_dates)
+   days_since <- as.numeric(most_recent_date - game_dates)
+   
+   # Set decay rate λ (can be tuned)
+   lambda <- 0.001
+   time_weights <- exp(-lambda * days_since)
+   
+   # Combined tournament + time weights
+   for(i in 1:games){ 
+     tournament <- tournaments[i]
+     base_weight <- if (tournament %in% friendly_games) {
+       1
+     } else if (tournament %in% qualifier_games) {
+       1.5
+     } else {
+       2
+     }
+     
+     W[i, i] <- base_weight * time_weights[i]
    }
-  else if(tournament %in% qualifier_games){
-    W[i, i] <- 1
-  }
-  else(W[i, i] <- 1)
-  }
+   
+   W[games+1, games+1] <- 1  # keep constraint weight unchanged
  
   y <- c(Scores$Mar[1:games], 0)#add +1 to games here #margin of victory vector
   for (i in 1:games){ #scale the margin vector to make winning more important and limit the weight of routs
