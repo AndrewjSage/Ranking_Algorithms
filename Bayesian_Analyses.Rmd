@@ -1,0 +1,145 @@
+---
+title: "Bayesian Rankings"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+library(gridExtra)
+```
+
+
+```{r}
+library(MASS)
+library(tidyverse)
+library(reshape2)
+library(xtable)
+library(lme4)
+library(rstan)
+library(blme)
+library(mcmcse)
+library(rjags)
+library(R2jags)
+library(runjags)
+library(lubridate)
+library(rpart)
+library(rpart.plot)
+```
+
+```{r}
+#source("weekly_res_gen.R")
+select <- dplyr::select
+
+# Setup NBA data
+NBA <- read_csv("NBA_Scores_10yr.csv")
+NBA <- NBA[!is.na(NBA$Date),]
+NBA$non_neutral <- 1
+NBA <- NBA %>% select(Date, AwayTeam, HomeTeam, Diff, Year, Post_Season, non_neutral) %>% rename(year=Year, diff=Diff)
+yr <- NBA$year - 1
+yr[nchar(NBA$Date)==3] <-  1+yr[nchar(NBA$Date)==3]
+NBA$Date[nchar(NBA$Date)==3] <- str_c("0", NBA$Date[nchar(NBA$Date)==3])
+NBA$Date <- str_c(NBA$Date, yr)
+NBA$Date <- mdy(NBA$Date)
+```
+
+
+```{r}
+Yr <- 2022
+ 
+ Data <- NBA %>% filter(year == Yr)
+ 
+ K <- 20   # K represents the week or time period we're predicting
+ Data_Train<- Data %>% filter(Post_Season == 0) #use regular season to train model
+ Data_Test<- Data %>% filter(Post_Season == 1)  #use postseason for predictions
+ Data_Train$period <- cut(Data_Train$Date, breaks = K, labels = FALSE) #divide into 20 intervals
+ Data_Test$period <- K+1
+```
+
+
+
+-------------------------------------------------------------------------------------
+## Bayesian constant strengths model
+-------------------------------------------------------------------------------------
+
+Model Equation:
+
+$$
+\begin{aligned}
+y_{ij} & \overset{\mathrm{ind}}{\sim} N(\beta_{i} -\beta_{j}+ \alpha h_{ijw}, \sigma^2_g) \\
+\beta_i & \overset{\mathrm{ind}}{\sim} N(0, 10^2) \\
+\sigma_g & \sim Ca(0,1)^+ \\
+ \alpha &\sim N(0,10^2)  \\
+\end{aligned}
+$$
+
+
+```{r}
+ # Bayesian Model with jags
+ model <- "model{
+ for(i in 1:n_games) {
+   y[i] ~ dnorm(strength[Home[i]] - strength[Away[i]]  + alpha*h[i] , prec_game)
+ }
+ 
+ 
+for(j in 1:n_teams){
+strength[j] ~dnorm(0, 1/100)   #jags uses 1/variance (i.e. precision)
+}
+ 
+prec_game <- 1 / (sig_game*sig_game)
+sig_game ~ dt(0,1,1)T(0,)
+
+alpha ~dnorm(0,1/100)
+ }
+"
+```
+
+
+```{r}
+#Fit model on actual data
+dat <- list(y=Data_Train$diff, n_games=nrow(Data_Train), 
+             Home=as.numeric(as.factor(Data_Train$HomeTeam)),
+             Away= as.numeric(as.factor(Data_Train$AwayTeam)),
+             n_teams=nlevels(as.factor(unique(c(Data_Train$HomeTeam, Data_Train$AwayTeam)))),
+             h = Data_Train$non_neutral,
+            nperiods=1
+) 
+```
+
+```{r}
+m <- jags.model(textConnection(model), dat, n.chains=3)   #run model
+parms <- c("strength", "alpha", "sig_game", "sig_team")
+r <- coda.samples(m, parms, n.iter=10000, n.burnin=100, thin=1)
+```
+Parameter Estimates:
+
+```{r}
+# look at the mean column
+# first two rows give estimates of alpha (home field parameter, and sigma_g, the est. game to game variability)
+# third row and below are the team strengths
+summary(r)[[1]]
+```
+
+Quantiles of posterior distributions:
+
+```{r}
+PQuant <- data.frame(summary(r)$quantiles)
+```
+
+```{r}
+srange <- 3:nrow(PQuant) # rows containing team strengths (they start in row 3)
+```
+
+
+Table with team strengths and confidence intervals:
+
+```{r}
+# collect in data frame
+Team <- sort(unique(c(NBA$AwayTeam, NBA$HomeTeam)))
+Mean <- summary(r)[[1]][srange,1]
+Med <- PQuant[srange,3]
+LCL <- PQuant[srange,1] # lower bound for 95% CI for team strength
+UCL <- PQuant[srange,5] # upper bound for 95% CI for team strength
+Rankings <- data.frame(Team, Mean, Med, LCL, UCL)
+Rankings |> arrange(desc(Mean))
+```
+
