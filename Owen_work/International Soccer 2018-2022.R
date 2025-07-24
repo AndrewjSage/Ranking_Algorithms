@@ -50,7 +50,7 @@ Rankings <- function(Sample_Data){
   opps <- c(Scores$OPP)
   tournaments <- c(Scores$Tournament)
   numteams <- length(unique(teams))
-  X <- matrix(0, games+1, numteams+1)#add +1 to games and numteams here
+  X <- matrix(0, games+1, numteams+1)
 
   
   # fill in X matrix with 0's and 1's
@@ -61,7 +61,7 @@ Rankings <- function(Sample_Data){
     X[i,opp] <- -1
   }
   
-  X[games+1,1:numteams]=c(rep(1, numteams))#add +1 to games here #add sum to zero constraint
+  X[games+1,1:numteams]=c(rep(1, numteams))#add sum to zero constraint
   X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
   
   #set up weighted matrix W
@@ -85,7 +85,7 @@ Rankings <- function(Sample_Data){
    lambda <- 0.001
    time_weights <- exp(-lambda * days_since)
    
-   # Combined tournament + time weights
+   # Combined tournament and time weights
    for(i in 1:games){ 
      tournament <- tournaments[i]
      base_weight <- if (tournament %in% friendly_games) {
@@ -119,8 +119,31 @@ Rankings <- function(Sample_Data){
     }
     
   }
+  
   b <- ginv(t(X)%*%W%*%X)%*%t(X)%*%W%*%y  #calculate ratings using weighted least squares
+  
+  # weight games by closeness of opponent's strengths.
+  # games between closely matched competitors are rated more heavily than mismatches
+  Winv <- W
+  diag(Winv) <- 1/diag(W) # initially give each game equal weight
+  b <- ginv(t(X)%*%Winv%*%X)%*%t(X)%*%Winv%*%y # calculate initial ratings
+  b0 <- rep(1000, length(b)) # vector to store weighted ratings
+  
+  # loop to iteratively recalculate ratings and game weights until they reach convergence criteria
+  while(sum((b-b0)^2)>0.0001){
+    # fill in diagonal entries of weight matrix with difference in ratings between the teams that played in that game
+    diag(W)[1:(nrow(W)-1)] <- X[-nrow(X),-ncol(X)]%*%b[-length(b)] 
+    Winv <- W
+    w <- diag(W)[1:(nrow(W)-1)]
+    w <- abs(c(scale(w))) #standardize differences
+    diag(Winv)[nrow(W)] <- 0
+    diag(Winv)[1:(nrow(W)-1)] <- 1/(1+exp(w))  # use reciprocal exponential weighting function
+    b0 <- b   # store previous ratings
+    b <- ginv(t(X)%*%Winv%*%X)%*%t(X)%*%Winv%*%y # calculate new ratings using new weights
+  }
+  
   show(b)
+  
   # organize into table
   Rankings_Table <- data.frame(sort(as.character(unique(Scores$TEAM))), b[1:numteams])
   names(Rankings_Table) <- c("Team", "Rating")
