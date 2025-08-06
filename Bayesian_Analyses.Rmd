@@ -143,3 +143,174 @@ Rankings <- data.frame(Team, Mean, Med, LCL, UCL)
 Rankings |> arrange(desc(Mean))
 ```
 
+
+
+---------------------------------------------------------------------------------------
+## Normal Cauchy Model with change over time 
+---------------------------------------------------------------------------------------
+
+
+
+$$
+\begin{aligned}
+y_{ijw} & \overset{\mathrm{ind}}{\sim} N(\beta_{iw} -\beta_{jw} + \alpha h_{ijw}, \sigma^2_g) \\
+\beta_{iw} & = s_w\beta_{i(w-1)} + \delta_{iw} \\
+\beta_{i0} & \overset{\mathrm{ind}} \sim N(0, \sigma_t^2) \\
+ \sigma_g & \sim \text{Unif}(0,100) \\
+ \sigma_t & \sim \text{Unif}(0,100) \\
+ \alpha &\sim N(0,10^2)  \\
+ \delta_{iw} & \overset{\mathrm{ind}} \sim \gamma\text{t}(0, \nu) \\
+\gamma & \sim \text{Unif}(0,1) \\
+\nu & \sim\text{Ca}^+(0,1) T(1,) \\
+s_w & \sim \text{N}(0.995,0.1^2)
+\end{aligned}
+$$
+
+Notation:
+* $i$ and $j$ index teams and $w$ indexes time period (or week)
+* $\beta_{iw}$ denotes strength of team $i$ in period $w$. 
+* $\alpha$ is a home field advantage parameter
+* $\sigma_g$ is between-game variance in score differential   
+* $s_w$ is a shrinkage parameter for previous week's rating. Should be close to 1.  
+* $\delta_{iw}$ is Team i's change in week w (could be positive or negative). 
+* $\beta_{i0}$ is Team i's rating in week 0.  
+* $\sigma_t$ is variance in team strengths in week 0.   
+* $gamma$ is a scaling factor for weekly change.   
+* $\nu$ is a parameter for degrees of freedom (amount of uncertainty) associated with weekly change.   
+* The last 7 lines give prior disributions, either uniform, normal, t, or Cauchy. (Don't change these.) 
+
+```{r}
+ # Bayesian Model with jags
+ model <- "model{
+ for(i in 1:n_games) {
+   y[i] ~ dnorm(strength[Home[i], period[i]] - strength[Away[i], period[i]] + alpha*h[i], prec_game)
+ }
+ 
+for(w in 1:nperiods){
+sw[w] ~ dnorm(0.995, 100)          # prior on shrinkage parameter s_w
+} 
+ 
+for(j in 1:n_teams){
+strength[j,1] ~ dnorm(0, prec_team)        # model for each team's rating in week 0. 
+  for( w in 2:nperiods){
+   strength[j, w] = sw[w]*(strength[j, w-1] -mean(strength[,w-1])) + delta[j, w]   # equation for weekly change
+CauchyDraw[j, w] ~ dt(0, 1, nu)                        # prior on weekly change (dt(mu, tau, k)) k is df, tau    
+delta[j,w] =  gamma*CauchyDraw[j,w]     
+  }
+}
+ 
+
+prec_game <- 1 / (sig_game*sig_game)                # JAGS uses precision 1/variance
+sig_game ~  dunif(0,100)                           # uniform prior on standard deviation between games
+
+prec_team <- 1 / (sig_team*sig_team)               # JAGS uses precision 1/variance
+sig_team ~  dunif(0,100)                          # uniform prior on standard deviation between teams
+
+gamma ~ dunif(0,1)                               # uniform prior on scaling factor
+
+nu ~ dt(0,1,1)T(1,)                             # Cauchy prior on nu
+
+alpha ~ dnorm(0,1/100)                         # normal prior on home court advantage
+ }
+"
+```
+
+
+```{r}
+#Fit model on actual data
+dat <- list(y=Data_Train$diff, n_games=nrow(Data_Train), 
+             Home=as.numeric(as.factor(Data_Train$HomeTeam)),
+             Away= as.numeric(as.factor(Data_Train$AwayTeam)),
+             period = Data_Train$period,
+             nperiods = max(Data_Train$period),
+             n_teams=nlevels(as.factor(unique(c(Data_Train$HomeTeam, Data_Train$AwayTeam)))),
+             h = Data_Train$non_neutral
+) 
+
+m <- jags.model(textConnection(model), dat, n.chains=3)   #run model
+parms <- c("avgstrength", "strength", "delta", "gamma", "nu", "alpha", "sig_game", "sig_team", "sw")
+r <- coda.samples(m, parms, n.iter=1000, n.burnin=100, thin=1)
+```
+
+
+
+```{r}
+drange <- c(2:(1+length(Team)*(dat$nperiods-1)))    # index of weekly change parameters
+srange <- c((6+length(Team)*(dat$nperiods-1)):(5+length(Team)*(dat$nperiods-1)+dat$nperiods*30))  # index of team strength parameters
+```
+
+
+```{r}
+nperiods <- max(Data_Train$period)   
+PMeans <-summary(r)[[1]]                  # get posterior means for all parameters
+
+Initial_Strengths <- r[[1]][,srange[1]:srange[30]]       # posterior means for team strengths
+FinalStrengths <- r[[1]][,srange[length(srange)-29]:srange[length(srange)]]   # final team strength estimates
+EstChange <- apply(FinalStrengths - Initial_Strengths, 2, mean)              # calculate estimated change in team strengths over season
+q.05 <- apply(FinalStrengths - Initial_Strengths, 2, quantile, 0.05)         # 0.05 quantile of final team strengths
+q.95 <- apply(FinalStrengths - Initial_Strengths, 2, quantile, 0.95)         # 0.90 quantile of final team strengths
+ImpProb <- apply(FinalStrengths - Initial_Strengths, 2, function(x){mean(x>0)})  # calculate estimated probability that team improved over season
+W1W21df <- data.frame(EstChange, q.05, q.95, ImpProb)   # dataframe to store results
+  
+
+StrengthEst <- PMeans[srange,]                     # get all team strength estimates
+ChangeEst <-  PMeans[drange,]                      # get all team weekly change estimates
+
+# create matrices for team strengths and weekly changes
+StrengthMat <- matrix(StrengthEst[,1], nrow=length(Team), ncol=max(Data_Train$period), byrow=FALSE)
+ChangeMat <- matrix(c(rep(0, length(Team)), ChangeEst[,1]), nrow=length(Team), ncol=max(Data_Train$period), byrow=FALSE)
+
+AvgStrength <- apply(StrengthMat, 1, mean)    # calculate each team's average strength
+Strength_Summary <- cbind(Team, AvgStrength, data.frame(StrengthMat))   # add average strength column to matrix
+
+
+#calculate confidence intervals for team strength estimates each week
+PQuant <- data.frame(summary(r)$quantiles)      # calculate quantiles for posterior estimates
+period <- rep(1:max(Data_Train$period), each=length(unique(Team))) 
+d <- data.frame(Team, period) # dataframe to store strengths by period
+d$Mean <- unlist(StrengthEst[,1])  #extract mean strength each week
+d$med <- PQuant[srange,3]        # extract median
+d$lcl <- PQuant[srange,1]         # extract 0.05 quantile
+d$ucl <- PQuant[srange,5]         # extract 0.95 quantile
+
+
+delta_mean <- unlist(ChangeEst[,1])  # estimated weekly change for each team
+delta_med <- PQuant[drange,3]       # estimated median of posterior distribution for weekly change
+df1 <- data.frame(ChangeEst[which(abs(delta_mean)>0.2),])   # find weekly changes greater than 0.2 (might need to change this number)
+df1$teamweek <- rownames(df1)   
+# separate team names from week numbers
+df2 <- df1 %>% separate(teamweek, into =c("A", "B"), sep=",") %>% separate(A, into=c("C", "TeamNum"), sep=6) %>% select(-c("B", "C"))
+df2$Team <- Team[as.numeric(df2$TeamNum)]   # match team with number
+df <- d %>% mutate_if(is.numeric, round, 2)  # round 
+
+# order changes from largest to smallest
+Changes <- df2 %>% select(Team, Mean, SD) %>% rename(Change=Mean) %>% arrange(desc(Change))
+
+# plot of team strengths by week
+Plot <- ggplot(df, aes(x= period, y=Mean, color=Team))+ geom_point() + theme_bw() +ylim(c(-25,25)) +geom_line()
+
+# table of team strengths by week
+Strengths <- cbind(Strength_Summary, W1W21df) %>% 
+  mutate_if(is.numeric, round, 2)%>% arrange(desc(X20)) %>% 
+  select(Team, AvgStrength, X1, X5, X10, X15, X20, EstChange, q.05, q.95, ImpProb) %>%
+  rename(Avg=AvgStrength, W5=X5, W1=X1,  W10=X10,  W15=X15,
+         W20=X20, Change=EstChange)
+```
+
+
+Team Strengths:
+
+```{r}
+Strengths
+```
+
+Changes:
+
+```{r}
+Changes
+```
+
+```{r}
+Plot
+```
+
