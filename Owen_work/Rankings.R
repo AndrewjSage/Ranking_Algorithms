@@ -141,9 +141,21 @@ final_rankings <- strength_df %>%
 
 print(final_rankings)
 
-Graph <- ggplot(strength_df, aes(x = Period, y = Mean, color = Team)) +
-  geom_line() +
-  theme_minimal() +
-  labs(title = "Team Strength Over Time", y = "Strength", x = "Period")
+top_teams <- final_rankings %>%
+  slice_max(order_by = Mean, n = 10) %>%
+  pull(Team)
+show(top_teams)
 
-show(Graph)
+plot_df <- strength_df %>%
+  filter(Team %in% top_teams)
+
+Graph <- ggplot(plot_df, aes(x = Period, y = Mean, color = Team)) +
+  geom_line(linewidth = 1) +
+  theme_minimal() +
+  labs(
+    title = "Top 10 Teams Strength Over Time",
+    y = "Strength",
+    x = "Period"
+  )
+
+print(Graph)
