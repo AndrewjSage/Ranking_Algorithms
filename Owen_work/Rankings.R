@@ -8,7 +8,7 @@ library(rjags)
 #source("weekly_res_gen.R")
 select <- dplyr::select
 
-# Setup Games data
+# Set up Games data
 Games <- International.Soccer.Games.2018.2022
 Games <- Games %>% select(V2, V3, V4, V7, V9, V10)
 
@@ -77,7 +77,7 @@ model {
     strength[j, 1] ~ dnorm(0, 0.01)
 
     for (t in 2:n_periods) {
-      strength[j, t] ~ dnorm(strength[j, t - 1], prec_team)
+      strength[j, t] ~ dt(strength[j, t - 1], prec_team, 3)
     }
   }
 
@@ -146,14 +146,18 @@ top_teams <- final_rankings %>%
   pull(Team)
 show(top_teams)
 
+secondary_top_teams <- c("France", "Uruguay", "Colombia", "Switzerland", "Japan", "Croatia",
+               "Poland", "Serbia", "Algeria", "Canada")
+
 plot_df <- strength_df %>%
   filter(Team %in% top_teams)
 
 Graph <- ggplot(plot_df, aes(x = Period, y = Mean, color = Team)) +
+  #geom_point(shape = 21, size = 3) +
   geom_line(linewidth = 1) +
   theme_minimal() +
   labs(
-    title = "Top 10 Teams Strength Over Time",
+    title = "Teams Ranked 11-20 Strength Over Time",
     y = "Strength",
     x = "Period"
   )
