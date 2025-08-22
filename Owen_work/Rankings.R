@@ -15,46 +15,32 @@ Games <- Games %>% select(V2, V3, V4, V7, V9, V10)
 Games$Date <- as.Date(Games$V2, format = "%m/%d/%Y")
 Games <- Games %>% filter(!is.na(Date))
 
-#Commenting out year filter for now
+friendlies <- c("Friendly", "Friendly tournament")
 
-#Yr <- 2022
+qualifiers <- c("African Nations Cup qualifier", "Arab Cup qualifier", 
+                   "Asian Cup qualifier", "CONCACAF Champ qual", 
+                   "CONCACAF Nations League q", "East Asian Championship qual",
+                   "European Championship qual", "Southeast Asian Champ qual")
 
-#Data <- Games %>% filter(year == Yr)
+all_gametypes <- unique(Games$V7)
+noncup_games <- c("Friendly", "Friendly tournament", 
+                     "African Nations Cup qualifier", "Arab Cup qualifier", 
+                     "Asian Cup qualifier", "CONCACAF Champ qual", 
+                     "CONCACAF Nations League q", "East Asian Championship qual",
+                     "European Championship qual", "Southeast Asian Champ qual")
+cup_games <- setdiff(all_gametypes, noncup_games)
 
-K <- 20   # K represents the week or time period we're predicting
+Games$friendly <- ifelse(Games$V7 %in% friendlies, 1, 0)
+Games$qualifier <- ifelse(Games$V7 %in% qualifiers, 1, 0)
+Games$cup <- ifelse(Games$V7 %in% cup_games, 1, 0)
 
 # Setup teams and data
 all_teams <- sort(unique(c(Games$V3, Games$V4)))
 Games$Home <- match(Games$V3, all_teams)
 Games$Away <- match(Games$V4, all_teams)
 
-#Applying personalized test dataset
-
-cup_games <- Games%>% 
-  filter(!(Games$V7 %in% c("Friendly", "Friendly tournament", 
-                     "African Nations Cup qualifier", "Arab Cup qualifier", 
-                     "Asian Cup qualifier", "CONCACAF Champ qual", 
-                     "CONCACAF Nations League q", "East Asian Championship qual",
-                     "European Championship qual", "Southeast Asian Champ qual")))
-
-Test_cup_subset <- cup_games[951:1748, ]
-
-Test_indices <- which(duplicated(rbind(Games, Test_cup_subset))[(nrow(Games) + 1):nrow(rbind(Games, Test_cup_subset))])
-
-
-Data_Test <- dplyr::semi_join(Games, Test_cup_subset, by = colnames(Games))
-
-Data_Train <- dplyr::anti_join(Games, Data_Test, by = colnames(Games))
-Data_Train$Date <- as.Date(Data_Train$V2, format = "%m/%d/%Y")
-Data_Train <- Data_Train %>% filter(!is.na(Date))
-Data_Train$period <- cut(Data_Train$Date, breaks = K, labels = FALSE) #divide into 20 intervals
-Data_Test$period <- K+1
-
-Games$period <- NA
-Games$period[match(Data_Train$V2, Games$V2)] <- Data_Train$period
-Games$period[is.na(Games$period)] <- K + 1
-
-
+K <- 20   # number of periods
+Games$period <- cut(Games$Date, breaks = K, labels = FALSE)
 
 
 -------------------------------------------------------------------------------------
@@ -68,7 +54,9 @@ model {
     y[i] ~ dnorm(
       strength[Home[i], period[i]] -
       strength[Away[i], period[i]] +
-      alpha * h[i],
+      alpha * h[i] + 
+      beta_qual * qualifier[i] + 
+      beta_cup * cup[i],
       prec_game
     )
   }
@@ -82,6 +70,8 @@ model {
   }
 
   alpha ~ dnorm(0, 0.01)
+  beta_qual ~ dnorm(0, 0.01) 
+  beta_cup ~ dnorm(0, 0.01)
 
   # Game-to-game variability
   sig_game ~ dt(0, 1, 1) T(0, )
@@ -97,18 +87,19 @@ model {
 
 dat <- list(
   y = as.numeric(Games$V10),
-  n_games = nrow(Games),
+  n_games = as.integer(nrow(Games)),
   Home = as.integer(Games$Home),
   Away = as.integer(Games$Away),
   h = as.numeric(Games$V9),
   period = as.integer(Games$period),
-  n_teams = length(all_teams),
-  n_periods = K + 1
+  n_teams = as.integer(length(all_teams)),
+  n_periods = as.integer(K),
+  qualifier = as.integer(Games$qualifier),
+  cup = as.integer(Games$cup)
 )
 
-
 m <- jags.model(textConnection(model), dat, n.chains=3)   #run model
-parms <- c("strength", "alpha", "sig_game", "sig_team")
+parms <- c("strength", "alpha", "sig_game", "sig_team", "beta_qual", "beta_cup")
 r <- coda.samples(m, parms, n.iter=10000, n.burnin=100, thin=1)
 
 
@@ -144,13 +135,12 @@ print(final_rankings)
 top_teams <- final_rankings %>%
   slice_max(order_by = Mean, n = 10) %>%
   pull(Team)
-show(top_teams)
 
-secondary_top_teams <- c("France", "Uruguay", "Colombia", "Switzerland", "Japan", "Croatia",
-               "Poland", "Serbia", "Algeria", "Canada")
+secondary_top_teams <- c("France", "Uruguay", "Colombia", "Switzerland", "Serbia", "Croatia",
+               "Poland", "Japan", "United States", "Canada")
 
 plot_df <- strength_df %>%
-  filter(Team %in% top_teams)
+  filter(Team %in% secondary_top_teams)
 
 Graph <- ggplot(plot_df, aes(x = Period, y = Mean, color = Team)) +
   #geom_point(shape = 21, size = 3) +
