@@ -31,8 +31,8 @@ numgames <- 30
 
 # Randomly select two different teams for each game 
 games <- data.frame( 
-  TEAM = character(numgames), 
-  OPP = character(numgames), 
+  home_team = character(numgames), 
+  away_team = character(numgames), 
   stringsAsFactors = FALSE 
 ) 
 
@@ -40,14 +40,14 @@ for (i in 1:numgames) {
   
   # Select two different teams 
   matchup <- sample(teams, 2, replace = FALSE) 
-  games$TEAM[i] <- matchup[1] 
-  games$OPP[i] <- matchup[2] 
+  games$home_team[i] <- matchup[1] 
+  games$away_team[i] <- matchup[2] 
   
 } 
 
 # Generate random margins of victory 
 # Values range from -8 to +8 
-games$Differential <- sample( 
+games$margin <- sample( 
   c(-8:8), 
   numgames, 
   replace = TRUE
@@ -69,8 +69,8 @@ colnames(X) <- teams
 
 # Fill the matchup portion of X 
 for (i in 1:numgames) { 
-  team <- games$TEAM[i] 
-  opp <- games$OPP[i] 
+  team <- games$home_team[i] 
+  opp <- games$away_team[i] 
   X[i, team] <- 1 
   X[i, opp] <- -1 
 } 
@@ -82,7 +82,7 @@ X[numgames + 1, ] <- 1
 print(X)
 
 # Set the final element of y to 0
-y <- c(games$Differential, 0) 
+y <- c(games$margin, 0) 
 
 # Display the y-vector
 print(y)
@@ -203,8 +203,8 @@ Soccer_Games <- read.csv("Owen_Work/International Soccer Games 2018-2022.csv")
 Rankings <- function(Games_Data){
   
   #Preliminary work to set up X matrix
-  Scores <- Games_Data |> dplyr::select(home_team, away_team, home, margin)
-  names(Scores) <- c("TEAM", "OPP",  "Mar", "Home")
+  Scores <- Games_Data |> dplyr::select(home_team, away_team, margin)
+  names(Scores) <- c("TEAM", "OPP",  "Mar")
   Scores <- rbind(Scores,Scores)
   h <- nrow(Scores)/2
   Scores$TEAM <- as.character(Scores$TEAM)
@@ -228,7 +228,6 @@ Rankings <- function(Games_Data){
     X[i,opp] <- -1
   }
   X[games+1,1:numteams]=c(rep(1, numteams)) #add sum to zero constraint
-  X[,numteams+1]=c(Scores$Home[1:games],0) #add homefield advantage
   y <- c(Scores$Mar[1:games],0) # margin of victory vector
   
   b <- ginv(t(X)%*%X)%*%t(X)%*%y  #calculate ratings using least squares

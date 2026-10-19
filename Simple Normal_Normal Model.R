@@ -14,17 +14,19 @@ select <- dplyr::select
 # Initial data
 Games <- International_Soccer_Games_2018_2022
 
-Games <- Games %>%
-select(-country)
+Games <- Games %>% 
+  select(-country)
 
 # Retain games with valid dates, as in the original workflow
-Games$Date <- as.Date(
-  Games$date,
-  format = "%m/%d/%Y"
-)
+ Games$Date <- as.Date(
+   Games$date,
+   format = "%m/%d/%Y"
+ )
 
 Games <- Games %>%
-  filter(!is.na(Date))
+   filter(!is.na(Date))
+
+# Games <- games
 
 # Remove games with missing goal differentials or team names
 Games <- Games %>%
@@ -313,13 +315,12 @@ RankingGraph <- ggplot(
   
   labs(
     title = "Bayesian Soccer Team Strength Rankings",
-    subtitle = "Posterior means with 95% confidence intervals",
+    subtitle = "Posterior means with 95% credible intervals",
     x = "Estimated Team Strength",
     y = "Team"
   )
 
 print(RankingGraph)
-
 
 
 # Posterior estimates

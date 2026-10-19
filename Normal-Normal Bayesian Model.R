@@ -501,7 +501,7 @@ RankingGraph <- ggplot(
   
   labs(
     title = "Final Bayesian Soccer Strength Rankings",
-    subtitle = "Posterior means with 95% confidence intervals",
+    subtitle = "Posterior means with 95% credible intervals",
     x = "Estimated Strength",
     y = "Team"
   )

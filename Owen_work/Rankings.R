@@ -9,10 +9,10 @@ library(rjags)
 select <- dplyr::select
 
 # Set up Games data
-Games <- International.Soccer.Games.2018.2022
-Games <- Games %>% select(V2, V3, V4, V7, V9, V10)
+Games <- International_Soccer_Games_2018_2022
+Games <- Games %>% select(-country)
 
-Games$Date <- as.Date(Games$V2, format = "%m/%d/%Y")
+Games$Date <- as.Date(Games$date, format = "%m/%d/%Y")
 Games <- Games %>% filter(!is.na(Date))
 
 friendlies <- c("Friendly", "Friendly tournament")
@@ -22,7 +22,7 @@ qualifiers <- c("African Nations Cup qualifier", "Arab Cup qualifier",
                    "CONCACAF Nations League q", "East Asian Championship qual",
                    "European Championship qual", "Southeast Asian Champ qual")
 
-all_gametypes <- unique(Games$V7)
+all_gametypes <- unique(Games$tournament)
 noncup_games <- c("Friendly", "Friendly tournament", 
                      "African Nations Cup qualifier", "Arab Cup qualifier", 
                      "Asian Cup qualifier", "CONCACAF Champ qual", 
@@ -30,14 +30,14 @@ noncup_games <- c("Friendly", "Friendly tournament",
                      "European Championship qual", "Southeast Asian Champ qual")
 cup_games <- setdiff(all_gametypes, noncup_games)
 
-Games$friendly <- ifelse(Games$V7 %in% friendlies, 1, 0)
-Games$qualifier <- ifelse(Games$V7 %in% qualifiers, 1, 0)
-Games$cup <- ifelse(Games$V7 %in% cup_games, 1, 0)
+Games$friendly <- ifelse(Games$tournament %in% friendlies, 1, 0)
+Games$qualifier <- ifelse(Games$tournament %in% qualifiers, 1, 0)
+Games$cup <- ifelse(Games$tournament %in% cup_games, 1, 0)
 
 # Setup teams and data
-all_teams <- sort(unique(c(Games$V3, Games$V4)))
-Games$Home <- match(Games$V3, all_teams)
-Games$Away <- match(Games$V4, all_teams)
+all_teams <- sort(unique(c(Games$home_team, Games$away_team)))
+Games$Home <- match(Games$home_team, all_teams)
+Games$Away <- match(Games$away_team, all_teams)
 
 K <- 20   # number of periods
 Games$period <- cut(Games$Date, breaks = K, labels = FALSE)
