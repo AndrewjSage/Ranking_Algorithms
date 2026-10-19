@@ -259,6 +259,7 @@ final_rankings <- strength_df %>%
 
 
 print(final_rankings)
+print(tail(final_rankings))
 
 
 # Top 10 teams
@@ -321,6 +322,38 @@ RankingGraph <- ggplot(
   )
 
 print(RankingGraph)
+
+
+# Distribution of final team strengths
+
+MeanDistribution <- ggplot(
+  final_rankings,
+  aes(x = Mean)
+) +
+  
+  geom_histogram(
+    bins = 30,
+    color = "black",
+    fill = "steelblue",
+    alpha = 0.8
+  ) +
+  
+  geom_vline(
+    xintercept = mean(final_rankings$Mean),
+    linetype = "dashed",
+    linewidth = 1
+  ) +
+  
+  theme_minimal() +
+  
+  labs(
+    title = "Distribution of Bayesian Team Strength Ratings",
+    subtitle = "Posterior mean estimates across all national teams",
+    x = "Estimated Team Strength (Goal Differential)",
+    y = "Number of Teams"
+  )
+
+print(MeanDistribution)
 
 
 # Posterior estimates

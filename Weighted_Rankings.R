@@ -238,9 +238,42 @@ Rankings <- function(Games_Data){
   Rankings_Table <- Rankings_Table[order(-Rankings_Table$Rating), ]
   Rankings_Table$Rnk <- (seq(1,nrow(Rankings_Table), 1))
   return(Rankings_Table)
+  
 }
 
 
 # calculate rankings
 World22_Rankings <- Rankings(Soccer_Games)
 World22_Rankings
+
+
+# Distribution of OLS team ratings
+
+RatingsDistribution <- ggplot(
+  World22_Rankings,
+  aes(x = Rating)
+) +
+  
+  geom_histogram(
+    bins = 30,
+    color = "black",
+    fill = "red",
+    alpha = 0.8
+  ) +
+  
+  geom_vline(
+    xintercept = mean(World22_Rankings$Rating),
+    linetype = "dashed",
+    linewidth = 1
+  ) +
+  
+  theme_minimal() +
+  
+  labs(
+    title = "Distribution of OLS Soccer Team Ratings",
+    subtitle = "Least-squares estimates across all national teams",
+    x = "Team Rating (Goal Differential)",
+    y = "Number of Teams"
+  )
+
+print(RatingsDistribution)
